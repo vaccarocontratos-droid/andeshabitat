@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RDB II — Panel de Control</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --forest:#1b4332;--forest-m:#2d6a4f;--forest-l:#d8f3dc;
+  --slate:#2f3e46;--slate-l:#e8ecef;
+  --wood:#a3704c;--wood-l:#f5efe6;
+  --blue:#1a5276;--blue-l:#d6eaf8;
+  --amber:#b7770d;--amber-l:#fef9e7;
+  --red:#922b21;--red-l:#fdedec;
+  --gray:#f4f6f7;--gray2:#e9ecef;--gray3:#ced4da;
+  --white:#ffffff;--black:#212529;
+}
+body{font-family:'Inter',sans-serif;background:#e2ddd5;min-height:100vh;padding:24px 16px 48px}
+.page{max-width:1100px;margin:0 auto}
+
+/* EDIT MODE TOOLBAR */
+.edit-toolbar{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--slate);color:#fff;border-radius:8px;
+  padding:10px 16px;margin-bottom:14px;flex-wrap:wrap;gap:10px;
+}
+.edit-toolbar-left{display:flex;align-items:center;gap:10px}
+.edit-badge{background:var(--amber);color:#fff;font-size:10px;font-weight:700;
+  padding:3px 8px;border-radius:4px;letter-spacing:.05em;text-transform:uppercase}
+.edit-badge.saved{background:var(--forest-m)}
+.toolbar-btn{padding:6px 14px;border:none;border-radius:6px;font-size:12px;font-weight:600;
+  cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+.btn-save{background:var(--forest-m);color:#fff} .btn-save:hover{background:var(--forest)}
+.btn-reset{background:rgba(255,255,255,.15);color:#fff} .btn-reset:hover{background:rgba(255,255,255,.25)}
+.btn-print{background:var(--wood);color:#fff} .btn-print:hover{background:#8a5e3a}
+.edit-hint{font-size:11px;color:#9fc4a6}
+
+/* EDITABLE FIELDS */
+[contenteditable="true"]{
+  outline:none;border-radius:3px;transition:background .12s;cursor:text;
+}
+[contenteditable="true"]:hover{background:rgba(255,255,255,.5)}
+[contenteditable="true"]:focus{
+  background:#fff;box-shadow:0 0 0 2px var(--amber);
+  border-radius:3px;padding:0 2px;
+}
+.edit-num{
+  font-family:'JetBrains Mono',monospace;
+  border-bottom:1.5px dashed rgba(163,112,76,.5);
+}
+.edit-num:focus{border-bottom-color:transparent}
+
+/* HEADER */
+.header{background:var(--forest);border-radius:10px 10px 0 0;padding:20px 28px 16px;margin-bottom:2px}
+.header-title{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:#fff}
+.header-sub{display:flex;justify-content:space-between;align-items:center;margin-top:6px;flex-wrap:wrap;gap:8px}
+.header-sub-left{font-size:12px;color:#a8d5be}
+.header-badge{background:rgba(255,255,255,.12);border:1px solid rgba(250,215,160,.4);
+  border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;color:#fad7a0;
+  font-family:'JetBrains Mono',monospace}
+
+/* SECTION LABEL */
+.section-label{background:var(--slate);color:#fff;font-size:11px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;padding:7px 16px;margin:10px 0 0}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:var(--gray3)}
+.kpi-card{padding:14px 16px 12px;display:flex;flex-direction:column;gap:4px}
+.kpi-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase}
+.kpi-val{font-family:'Fraunces',serif;font-size:26px;font-weight:600;line-height:1.1}
+.kpi-sub{font-size:11px;color:#888;margin-top:1px}
+.kpi-blue{background:var(--blue-l)} .kpi-blue .kpi-label{color:var(--blue)} .kpi-blue .kpi-val{color:var(--forest)}
+.kpi-green{background:var(--forest-l)} .kpi-green .kpi-label{color:var(--forest-m)} .kpi-green .kpi-val{color:var(--forest)}
+.kpi-amber{background:var(--amber-l)} .kpi-amber .kpi-label{color:var(--amber)} .kpi-amber .kpi-val{color:var(--amber)}
+.kpi-gray{background:var(--gray2)} .kpi-gray .kpi-label{color:var(--slate)} .kpi-gray .kpi-val{color:var(--slate)}
+
+/* DOS COLUMNAS */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--gray3);margin-top:2px}
+.col-block{background:var(--white)}
+
+/* TABLA */
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--slate);color:#fff;font-size:10px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;text-align:left}
+thead th.r{text-align:right}
+tbody tr:nth-child(even) td{background:var(--gray)}
+tbody td{padding:7px 10px;font-size:12px;border-bottom:1px solid #e0e0e0;vertical-align:middle}
+tbody td.r{text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px}
+tbody td.bold{font-weight:600}
+.total-row td{background:var(--forest)!important;color:#fff;font-weight:600;font-size:12px}
+.total-row td.r{font-family:'JetBrains Mono',monospace}
+
+/* PILL */
+.pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px}
+.pill-green{background:var(--forest-l);color:var(--forest-m)}
+.pill-amber{background:var(--amber-l);color:var(--amber)}
+.pill-blue{background:var(--blue-l);color:var(--blue)}
+.pill-red{background:var(--red-l);color:var(--red)}
+.pill-gray{background:var(--gray2);color:var(--slate)}
+
+/* FLUJO */
+.flujo-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 16px}
+.flujo-card{border-radius:8px;padding:14px 16px}
+.flujo-card-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+.flujo-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+.flujo-row:last-child{border-bottom:none;margin-top:4px;padding-top:8px}
+.flujo-label{font-size:12px}
+.flujo-saldo{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.green{color:var(--forest-m)} .red{color:var(--red)} .blue{color:var(--blue)} .amber{color:var(--amber)}
+
+/* COSTOS */
+.costo-row{display:flex;align-items:center;padding:9px 16px;border-bottom:1px solid #e8e8e8;gap:10px}
+.costo-row:nth-child(even){background:var(--gray)}
+.costo-desc{flex:1;font-size:12px}
+.costo-num{font-family:'JetBrains Mono',monospace;font-size:12px;width:82px;text-align:right;flex-shrink:0}
+.costo-bar-wrap{width:80px;flex-shrink:0}
+.progress-track{background:#ddd;border-radius:4px;height:6px;overflow:hidden}
+.progress-fill{height:6px;border-radius:4px;transition:width .4s ease}
+.costo-total-row{background:var(--forest)!important;padding:10px 16px;display:flex;align-items:center;gap:10px}
+.costo-total-row .costo-desc,.costo-total-row .costo-num{color:#fff;font-weight:600}
+
+/* PERMUTAS */
+.permuta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:var(--gray3)}
+.permuta-card{padding:14px 16px 12px;display:flex;flex-direction:column;gap:4px}
+.permuta-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase}
+.permuta-val{font-family:'Fraunces',serif;font-size:22px;font-weight:600;line-height:1.1}
+.permuta-sub{font-size:10px;color:#888;margin-top:1px}
+
+/* CHART */
+.chart-wrap{padding:16px 16px 6px;background:#fff}
+.chart-inner{position:relative;height:200px}
+.chart-legend{display:flex;gap:16px;padding:6px 16px 10px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#555}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* BANNER */
+.banner{padding:10px 16px;font-size:12px;font-weight:500;text-align:center}
+.banner-blue{background:var(--blue-l);color:var(--blue)}
+.banner-green{background:var(--forest-l);color:var(--forest)}
+.banner-amber{background:var(--amber-l);color:var(--amber)}
+
+/* FOOTER */
+.footer{background:var(--forest);border-radius:0 0 10px 10px;padding:10px 20px;
+  text-align:center;font-size:11px;color:#7fb5a0;margin-top:2px}
+
+/* SAVE TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--forest);color:#fff;
+  padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;
+  box-shadow:0 4px 20px rgba(0,0,0,.25);transform:translateY(80px);
+  transition:transform .3s ease;z-index:999}
+.toast.show{transform:translateY(0)}
+
+@media(max-width:700px){
+  .kpi-grid,.permuta-grid{grid-template-columns:repeat(2,1fr)}
+  .two-col{grid-template-columns:1fr}
+  .flujo-grid{grid-template-columns:1fr}
+  .header-title{font-size:20px}
+  .kpi-val{font-size:20px}
+}
+@media print{
+  .edit-toolbar,.toast{display:none!important}
+  .page{max-width:100%}
+  [contenteditable]{border-bottom:none!important;box-shadow:none!important}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- TOOLBAR DE EDICIÓN -->
+<div class="edit-toolbar">
+  <div class="edit-toolbar-left">
+    <span class="edit-badge" id="editBadge">● Editando</span>
+    <span class="edit-hint">Tocá cualquier número o texto para editarlo</span>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="toolbar-btn btn-save" onclick="saveAll()">💾 Guardar</button>
+    <button class="toolbar-btn btn-reset" onclick="resetAll()">↺ Restaurar original</button>
+    <button class="toolbar-btn btn-print" onclick="window.print()">🖨 Imprimir / PDF</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-title" contenteditable="true" spellcheck="false">Rincón del Bosque II — Panel de Control</div>
+  <div class="header-sub">
+    <div class="header-sub-left" contenteditable="true" spellcheck="false">ACS Ingeniería Constructora S.A.S. &nbsp;·&nbsp; Familia Maler &nbsp;·&nbsp; 3 Sectores &nbsp;·&nbsp; Mensura N° 223-24 &nbsp;·&nbsp; Estado: En Curso</div>
+    <div class="header-badge">USD 1 = $<span class="edit-num" contenteditable="true" data-key="tc" spellcheck="false">1.515</span> ARS</div>
+  </div>
+</div>
+
+<!-- KPIs FINANCIEROS -->
+<div class="section-label">Indicadores financieros</div>
+<div class="kpi-grid">
+  <div class="kpi-card kpi-blue">
+    <div class="kpi-label" contenteditable="true">Venta bruta total</div>
+    <div class="kpi-val edit-num" contenteditable="true" data-key="ventaBruta" spellcheck="false">$1.619.104</div>
+    <div class="kpi-sub" contenteditable="true">USD — todo el proyecto</div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-label" contenteditable="true">Ganancia neta estimada</div>
+    <div class="kpi-val edit-num" contenteditable="true" data-key="gananciaNeta" spellcheck="false">$1.171.190</div>
+    <div class="kpi-sub" contenteditable="true">USD — resultado proyectado</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-label" contenteditable="true">Costos totales obra</div>
+    <div class="kpi-val edit-num" contenteditable="true" data-key="costosTotales" spellcheck="false">$447.914</div>
+    <div class="kpi-sub" contenteditable="true">USD + comisiones</div>
+  </div>
+  <div class="kpi-card kpi-gray">
+    <div class="kpi-label" contenteditable="true">Cobrado a dueños</div>
+    <div class="kpi-val edit-num" contenteditable="true" data-key="cobrado" spellcheck="false">$92.570</div>
+    <div class="kpi-sub" contenteditable="true">USD ingresado · saldo $<span class="edit-num" contenteditable="true" data-key="saldo" spellcheck="false">7.755</span></div>
+  </div>
+</div>
+
+<!-- KPIs INVENTARIO -->
+<div class="section-label">Inventario de lotes</div>
+<div class="kpi-grid">
+  <div class="kpi-card kpi-blue">
+    <div class="kpi-label" contenteditable="true">Disponibles completas</div>
+    <div class="kpi-val edit-num" contenteditable="true" data-key="lotesDisp" spellcheck="false">30</div>
+    <div class="kpi-sub" contenteditable="true">parcelas madres enteras</div>
+  </div>
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-label" contenteditable="true">Permutadas</div>
+    <div class="kpi-val edit-num" contenteditable="true" data-key="lotesPerm" spellcheck="false">10</div>
+    <div class="kpi-sub" contenteditable="true">parcelas madres</div>
+  </div>
+  <div class="kpi-card kpi-gray">
+    <div class="kpi-label" contenteditable="true">No comerciales</div>
+    <div class="kpi-val edit-num" contenteditable="true" data-key="lotesNC" spellcheck="false">6</div>
+    <div class="kpi-sub" contenteditable="true">dominio público / reserva</div>
+  </div>
+  <div class="kpi-card" style="background:var(--forest-l)">
+    <div class="kpi-label" style="color:var(--forest-m)" contenteditable="true">UF disponibles</div>
+    <div class="kpi-val edit-num" style="color:var(--forest)" contenteditable="true" data-key="ufDisp" spellcheck="false">50</div>
+    <div class="kpi-sub" contenteditable="true">de 117 en listado · ~450 m² c/u</div>
+  </div>
+</div>
+
+<!-- CLIENTES + FLUJO -->
+<div class="section-label">Clientes y contratos · Flujo de caja</div>
+<div class="two-col">
+  <!-- TABLA CLIENTES -->
+  <div class="col-block">
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th><th>Lote</th><th>Contrato</th>
+          <th class="r">Total USD</th><th class="r">Cobrado</th><th class="r">Saldo</th>
+        </tr>
+      </thead>
+      <tbody id="clientesBody">
+        <tr>
+          <td class="bold" contenteditable="true">Moreira (Analía y Casi)</td>
+          <td contenteditable="true">P12</td>
+          <td contenteditable="true" style="font-family:'JetBrains Mono',monospace;font-size:11px">BOL-012</td>
+          <td class="r" contenteditable="true" spellcheck="false">$28.000</td>
+          <td class="r green" contenteditable="true" spellcheck="false">$27.160</td>
+          <td class="r"><span class="pill pill-green">Cobrado</span></td>
+        </tr>
+        <tr>
+          <td class="bold" contenteditable="true">Daddona (Luciano y Natalia)</td>
+          <td contenteditable="true">P13</td>
+          <td contenteditable="true" style="font-family:'JetBrains Mono',monospace;font-size:11px">BOL-013</td>
+          <td class="r" contenteditable="true" spellcheck="false">$28.000</td>
+          <td class="r green" contenteditable="true" spellcheck="false">$27.160</td>
+          <td class="r"><span class="pill pill-green">Cobrado</span></td>
+        </tr>
+        <tr>
+          <td class="bold" contenteditable="true">Virginia</td>
+          <td contenteditable="true">P14-UFA</td>
+          <td contenteditable="true" style="font-family:'JetBrains Mono',monospace;font-size:11px">BOL-014A</td>
+          <td class="r" contenteditable="true" spellcheck="false">$14.000</td>
+          <td class="r green" contenteditable="true" spellcheck="false">$14.000</td>
+          <td class="r"><span class="pill pill-green">Cobrado</span></td>
+        </tr>
+        <tr>
+          <td class="bold" contenteditable="true">Mariel</td>
+          <td contenteditable="true">P14-UFB</td>
+          <td contenteditable="true" style="font-family:'JetBrains Mono',monospace;font-size:11px">BOL-014B</td>
+          <td class="r" contenteditable="true" spellcheck="false">$16.500</td>
+          <td class="r amber" contenteditable="true" spellcheck="false">$8.250</td>
+          <td class="r red bold" contenteditable="true" spellcheck="false">$7.755</td>
+        </tr>
+        <tr>
+          <td class="bold" contenteditable="true">Michael</td>
+          <td contenteditable="true">P15-UFB</td>
+          <td contenteditable="true" style="font-family:'JetBrains Mono',monospace;font-size:11px">BOL-015B</td>
+          <td class="r" contenteditable="true" spellcheck="false">$16.500</td>
+          <td class="r green" contenteditable="true" spellcheck="false">$16.000</td>
+          <td class="r"><span class="pill pill-green">Cobrado</span></td>
+        </tr>
+        <tr>
+          <td class="bold" contenteditable="true">Santoro Demian</td>
+          <td contenteditable="true">P15-UFA</td>
+          <td contenteditable="true" style="font-family:'JetBrains Mono',monospace;font-size:11px">—</td>
+          <td class="r" contenteditable="true" spellcheck="false">$16.000</td>
+          <td class="r amber" contenteditable="true" spellcheck="false">$11.000</td>
+          <td class="r red bold" contenteditable="true" spellcheck="false">$5.000</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--forest)">
+      <span style="color:#fff;font-weight:600;font-size:12px">Total · 6 contratos</span>
+      <span style="color:#fff;font-family:'JetBrains Mono',monospace;font-size:12px" contenteditable="true" spellcheck="false">$119.000 USD · cobrado $103.570 · saldo $12.755</span>
+    </div>
+    <div class="banner banner-blue">
+      Financiado anticipo 50% + 12 cuotas CAC 3%/mes → total a recaudar: <strong contenteditable="true" spellcheck="false">$1.065.260 USD</strong> &nbsp;[+10,9% sobre contado]
+    </div>
+  </div>
+
+  <!-- FLUJO DE CAJA -->
+  <div class="col-block">
+    <div class="flujo-grid">
+      <div class="flujo-card" style="background:var(--forest-l)">
+        <div class="flujo-card-title" style="color:var(--forest)" contenteditable="true">Período actual</div>
+        <div class="flujo-row">
+          <span class="flujo-label">Ingresos</span>
+          <span class="flujo-saldo green edit-num" contenteditable="true" data-key="ingActual" spellcheck="false">$91.600</span>
+        </div>
+        <div class="flujo-row">
+          <span class="flujo-label">Egresos</span>
+          <span class="flujo-saldo red edit-num" contenteditable="true" data-key="egActual" spellcheck="false">$77.574</span>
+        </div>
+        <div class="flujo-row">
+          <span class="flujo-label" style="font-weight:600">Saldo</span>
+          <span class="flujo-saldo green" id="saldoActual" style="font-size:16px">$14.026</span>
+        </div>
+        <div style="font-size:10px;color:#666;margin-top:8px" contenteditable="true">Nico $8.829 · Ana $5.333</div>
+      </div>
+      <div class="flujo-card" style="background:var(--amber-l)">
+        <div class="flujo-card-title" style="color:var(--amber)" contenteditable="true">Proyección futura</div>
+        <div class="flujo-row">
+          <span class="flujo-label">Ingresos</span>
+          <span class="flujo-saldo green edit-num" contenteditable="true" data-key="ingFuturo" spellcheck="false">$102.600</span>
+        </div>
+        <div class="flujo-row">
+          <span class="flujo-label">Egresos</span>
+          <span class="flujo-saldo red edit-num" contenteditable="true" data-key="egFuturo" spellcheck="false">$112.388</span>
+        </div>
+        <div class="flujo-row">
+          <span class="flujo-label" style="font-weight:600">Saldo</span>
+          <span class="flujo-saldo red" id="saldoFuturo" style="font-size:16px">-$9.788</span>
+        </div>
+        <div style="font-size:10px;color:#666;margin-top:8px" contenteditable="true">Incluye Santoro +$11.000 · Pozo -$6.420</div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-inner"><canvas id="flujoChart"></canvas></div>
+      <div class="chart-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#2d6a4f"></div>Ingresos</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#922b21"></div>Egresos</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#1a5276"></div>Saldo</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COSTOS + SECTORES -->
+<div class="section-label">Costos del proyecto · Inventario por sector</div>
+<div class="two-col">
+  <div class="col-block">
+    <div class="costo-row" style="background:var(--slate-l)">
+      <div class="costo-desc" style="font-size:10px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.06em">Rubro</div>
+      <div class="costo-num" style="font-size:10px;font-weight:600;color:var(--slate);text-transform:uppercase">Total</div>
+      <div class="costo-num" style="font-size:10px;font-weight:600;color:var(--slate);text-transform:uppercase">Saldo</div>
+      <div class="costo-bar-wrap" style="font-size:10px;font-weight:600;color:var(--slate);text-transform:uppercase;text-align:center">% pago</div>
+    </div>
+    <div class="costo-row">
+      <div class="costo-desc" contenteditable="true">Materiales energía eléctrica</div>
+      <div class="costo-num blue edit-num" contenteditable="true" spellcheck="false">$80.000</div>
+      <div class="costo-num red edit-num" contenteditable="true" spellcheck="false">$33.000</div>
+      <div class="costo-bar-wrap"><div class="progress-track"><div class="progress-fill" style="width:59%;background:var(--forest-m)"></div></div><div style="font-size:10px;color:#666;text-align:center;margin-top:2px" contenteditable="true">59%</div></div>
+    </div>
+    <div class="costo-row">
+      <div class="costo-desc" contenteditable="true">Mano de obra redes de servicios</div>
+      <div class="costo-num blue edit-num" contenteditable="true" spellcheck="false">$144.500</div>
+      <div class="costo-num red edit-num" contenteditable="true" spellcheck="false">$49.000</div>
+      <div class="costo-bar-wrap"><div class="progress-track"><div class="progress-fill" style="width:66%;background:var(--forest-m)"></div></div><div style="font-size:10px;color:#666;text-align:center;margin-top:2px" contenteditable="true">66%</div></div>
+    </div>
+    <div class="costo-row">
+      <div class="costo-desc" contenteditable="true">Limpieza + caminos</div>
+      <div class="costo-num blue edit-num" contenteditable="true" spellcheck="false">$75.000</div>
+      <div class="costo-num red edit-num" contenteditable="true" spellcheck="false">$35.000</div>
+      <div class="costo-bar-wrap"><div class="progress-track"><div class="progress-fill" style="width:53%;background:var(--forest-m)"></div></div><div style="font-size:10px;color:#666;text-align:center;margin-top:2px" contenteditable="true">53%</div></div>
+    </div>
+    <div class="costo-row">
+      <div class="costo-desc" contenteditable="true">Reserva general (imprevistos)</div>
+      <div class="costo-num blue edit-num" contenteditable="true" spellcheck="false">$50.000</div>
+      <div class="costo-num amber edit-num" contenteditable="true" spellcheck="false">$25.000</div>
+      <div class="costo-bar-wrap"><div class="progress-track"><div class="progress-fill" style="width:50%;background:var(--amber)"></div></div><div style="font-size:10px;color:#666;text-align:center;margin-top:2px" contenteditable="true">50%</div></div>
+    </div>
+    <div class="costo-row">
+      <div class="costo-desc" contenteditable="true">Ajuste s/ presupuesto original</div>
+      <div class="costo-num blue edit-num" contenteditable="true" spellcheck="false">$5.650</div>
+      <div class="costo-num red edit-num" contenteditable="true" spellcheck="false">$5.650</div>
+      <div class="costo-bar-wrap"><div class="progress-track"><div class="progress-fill" style="width:0%;background:var(--red)"></div></div><div style="font-size:10px;color:var(--red);text-align:center;margin-top:2px" contenteditable="true">0%</div></div>
+    </div>
+    <div class="costo-total-row">
+      <div class="costo-desc">TOTAL PRESUPUESTO</div>
+      <div class="costo-num edit-num" contenteditable="true" spellcheck="false">$383.150</div>
+      <div class="costo-num edit-num" style="color:#fad7a0" contenteditable="true" spellcheck="false">$147.650</div>
+      <div class="costo-bar-wrap" style="font-size:10px;color:#b2d8c4;text-align:center" contenteditable="true">$242k en lotes</div>
+    </div>
+  </div>
+
+  <div class="col-block">
+    <table>
+      <thead><tr><th>Sector</th><th class="r">Disponibles</th><th class="r">Precio ref. UF</th></tr></thead>
+      <tbody>
+        <tr><td class="bold" contenteditable="true">Sector I — Chacra 08 (P8–P22)</td><td class="r"><span class="pill pill-blue" contenteditable="true">10+ UF</span></td><td class="r" style="font-family:'JetBrains Mono',monospace;font-size:11px" contenteditable="true">$14k–$38k</td></tr>
+        <tr><td class="bold" contenteditable="true">Sector Sur — Mzas 14,15,16+Qta2</td><td class="r"><span class="pill pill-blue" contenteditable="true">16 UF</span></td><td class="r" style="font-family:'JetBrains Mono',monospace;font-size:11px" contenteditable="true">$15k–$71k</td></tr>
+        <tr><td class="bold" contenteditable="true">Mangrullo Este — Mza 13</td><td class="r"><span class="pill pill-blue" contenteditable="true">33 UF</span></td><td class="r" style="font-family:'JetBrains Mono',monospace;font-size:11px" contenteditable="true">$17.8k–$20.5k</td></tr>
+        <tr><td class="bold" contenteditable="true">Casa + terreno (Mza16-P2)</td><td class="r"><span class="pill pill-blue" contenteditable="true">2 lotes</span></td><td class="r" style="font-family:'JetBrains Mono',monospace;font-size:11px" contenteditable="true">$52.5k / $71.4k</td></tr>
+        <tr class="total-row"><td colspan="2">Sup. comercializable: <span contenteditable="true">50.208 m²</span></td><td class="r" contenteditable="true">$1.619.104 USD</td></tr>
+      </tbody>
+    </table>
+    <div class="banner banner-green" style="margin-top:2px" contenteditable="true">Fin estimado: 2027-01 &nbsp;·&nbsp; Resp.: Vaccaro Nicolás Augusto</div>
+    <table style="margin-top:2px">
+      <thead><tr><th>Parcela vendida</th><th>Comprador</th><th class="r">USD</th><th class="r">Escritura</th></tr></thead>
+      <tbody>
+        <tr><td contenteditable="true">P12 · 900 m²</td><td contenteditable="true">Moreira</td><td class="r" contenteditable="true">$28.000</td><td class="r"><span class="pill pill-amber" contenteditable="true">Pendiente</span></td></tr>
+        <tr><td contenteditable="true">P13 · 900 m²</td><td contenteditable="true">Daddona</td><td class="r" contenteditable="true">$28.000</td><td class="r"><span class="pill pill-amber" contenteditable="true">Pendiente</span></td></tr>
+        <tr><td contenteditable="true">P14-UFA · 465 m²</td><td contenteditable="true">Virginia</td><td class="r" contenteditable="true">$14.000</td><td class="r"><span class="pill pill-amber" contenteditable="true">Pendiente</span></td></tr>
+        <tr><td contenteditable="true">P14-UFB · 465 m²</td><td contenteditable="true">Mariel</td><td class="r" contenteditable="true">$16.500</td><td class="r"><span class="pill pill-amber" contenteditable="true">Pendiente</span></td></tr>
+        <tr><td contenteditable="true">P15-UFB · 493 m²</td><td contenteditable="true">Michael</td><td class="r" contenteditable="true">$16.500</td><td class="r"><span class="pill pill-amber" contenteditable="true">Pendiente</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PERMUTAS -->
+<div class="section-label">Cómputo de m² permutados — Vaccaro Gestión + ACS</div>
+<div class="permuta-grid">
+  <div class="permuta-card" style="background:var(--blue-l)">
+    <div class="permuta-label" style="color:var(--blue)" contenteditable="true">Derecho total acordado</div>
+    <div class="permuta-val edit-num" style="color:var(--forest)" contenteditable="true" spellcheck="false">10.800 m²</div>
+    <div class="permuta-sub" contenteditable="true">Vaccaro 9.000 + ACS 1.800</div>
+  </div>
+  <div class="permuta-card" style="background:var(--amber-l)">
+    <div class="permuta-label" style="color:var(--amber)" contenteditable="true">En poder actual</div>
+    <div class="permuta-val edit-num" style="color:var(--amber)" contenteditable="true" spellcheck="false">8.875 m²</div>
+    <div class="permuta-sub" contenteditable="true">6 parcelas Vaccaro/ACS</div>
+  </div>
+  <div class="permuta-card" style="background:var(--forest-l)">
+    <div class="permuta-label" style="color:var(--forest-m)" contenteditable="true">Saldo por aplicar</div>
+    <div class="permuta-val edit-num" style="color:var(--forest)" contenteditable="true" spellcheck="false">8.941 m²</div>
+    <div class="permuta-sub" contenteditable="true">Derecho pendiente de asignar</div>
+  </div>
+  <div class="permuta-card" style="background:var(--gray2)">
+    <div class="permuta-label" style="color:var(--slate)" contenteditable="true">Diferencia conciliación</div>
+    <div class="permuta-val edit-num" style="color:var(--red)" contenteditable="true" spellcheck="false">-65,99 m²</div>
+    <div class="permuta-sub" contenteditable="true">En poder − saldo del derecho</div>
+  </div>
+</div>
+<div class="banner banner-green" style="margin-top:2px" contenteditable="true">
+  Parcelas en poder: P19 · Mza15-P1(FO) · Mza15-P8 · Mza16-P1 · Qta2-P8 · Mza13-P9 · Mza13-P8 &nbsp;|&nbsp; Total: 8.875,50 m²
+</div>
+
+<div class="footer" contenteditable="true">
+  RINCÓN DEL BOSQUE II &nbsp;·&nbsp; ACS Ingeniería Constructora S.A.S. &nbsp;·&nbsp; Vaccaro Nicolás Augusto &nbsp;·&nbsp; Confidencial — Solo uso interno
+</div>
+
+</div><!-- /page -->
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓ Guardado en el navegador</div>
+
+<script>
+// ── AUTOGUARDADO ──────────────────────────────────────────────
+const SAVE_KEY = 'rdb2_dashboard_v1';
+let saveTimer = null;
+let chartInstance = null;
+
+function saveAll() {
+  const data = document.getElementById('page-content') 
+    ? document.getElementById('page-content').innerHTML 
+    : document.querySelector('.page').innerHTML;
+  try {
+    localStorage.setItem(SAVE_KEY, data);
+    showToast('✓ Guardado en el navegador');
+    const badge = document.getElementById('editBadge');
+    badge.textContent = '● Guardado';
+    badge.className = 'edit-badge saved';
+    setTimeout(() => { badge.textContent = '● Editando'; badge.className = 'edit-badge'; }, 3000);
+  } catch(e) { showToast('⚠ Error al guardar'); }
+}
+
+function autoSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveAll, 1500);
+  document.getElementById('editBadge').textContent = '● Editando';
+  document.getElementById('editBadge').className = 'edit-badge';
+}
+
+function resetAll() {
+  if (!confirm('¿Restaurar todos los datos originales? Se perderán los cambios no guardados.')) return;
+  localStorage.removeItem(SAVE_KEY);
+  location.reload();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── CÁLCULO AUTOMÁTICO DE SALDOS FLUJO ───────────────────────
+function parseNum(str) {
+  if (!str) return 0;
+  return parseFloat(String(str).replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.')) || 0;
+}
+function fmtARS(n) {
+  const abs = Math.abs(n);
+  const s = '$' + Math.round(abs).toLocaleString('es-AR');
+  return n < 0 ? '-' + s : s;
+}
+
+function recalcFlujo() {
+  const ingA = parseNum(document.querySelector('[data-key="ingActual"]')?.innerText);
+  const egA  = parseNum(document.querySelector('[data-key="egActual"]')?.innerText);
+  const ingF = parseNum(document.querySelector('[data-key="ingFuturo"]')?.innerText);
+  const egF  = parseNum(document.querySelector('[data-key="egFuturo"]')?.innerText);
+  const sA   = ingA - egA;
+  const sF   = ingF - egF;
+  const elA  = document.getElementById('saldoActual');
+  const elF  = document.getElementById('saldoFuturo');
+  if (elA) { elA.textContent = fmtARS(sA); elA.className = 'flujo-saldo ' + (sA>=0?'green':'red'); }
+  if (elF) { elF.textContent = fmtARS(sF); elF.className = 'flujo-saldo ' + (sF>=0?'green':'red'); }
+  updateChart(ingA, egA, sA, ingF, egF, sF);
+}
+
+// ── GRÁFICO ───────────────────────────────────────────────────
+function updateChart(ingA, egA, sA, ingF, egF, sF) {
+  const ctx = document.getElementById('flujoChart');
+  if (!ctx) return;
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Período actual', 'Proyección futura'],
+      datasets: [
+        { label:'Ingresos', data:[ingA||91600, ingF||102600], backgroundColor:'#2d6a4f', borderRadius:4, barPercentage:.6 },
+        { label:'Egresos',  data:[egA||77574,  egF||112388],  backgroundColor:'#922b21', borderRadius:4, barPercentage:.6 },
+        { label:'Saldo',    data:[sA||14026,   sF||-9788],    backgroundColor:'#1a5276', borderRadius:4, barPercentage:.6 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: c => c.dataset.label+': '+fmtARS(c.parsed.y)+' USD' } }
+      },
+      scales:{
+        x:{ grid:{color:'#eee'}, ticks:{font:{size:11,family:'Inter'},color:'#555'} },
+        y:{ grid:{color:'#eee'}, ticks:{font:{size:11,family:'Inter'},color:'#555',
+          callback: v => (v<0?'-':'')+'$'+Math.abs(v/1000).toFixed(0)+'k' } }
+      }
+    }
+  });
+}
+
+// ── OBSERVAR CAMBIOS ──────────────────────────────────────────
+document.addEventListener('input', e => {
+  if (e.target.closest('.page')) {
+    autoSave();
+    if (e.target.dataset.key && ['ingActual','egActual','ingFuturo','egFuturo'].includes(e.target.dataset.key)) {
+      recalcFlujo();
+    }
+  }
+});
+
+// ── ATAJOS DE TECLADO ─────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveAll(); }
+});
+
+// ── CARGAR DATOS GUARDADOS O INICIALIZAR ──────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem(SAVE_KEY);
+  if (saved) {
+    try {
+      document.querySelector('.page').innerHTML = saved;
+      showToast('✓ Datos cargados del navegador');
+    } catch(e) { console.warn('Error cargando datos:', e); }
+  }
+  // Iniciar gráfico con valores por defecto
+  setTimeout(() => recalcFlujo(), 300);
+});
+</script>
+</body>
+</html>
