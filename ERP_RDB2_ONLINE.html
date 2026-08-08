@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RDB II — Panel de Control</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --forest:#1b4332;--forest-m:#2d6a4f;--forest-l:#d8f3dc;
+  --slate:#2f3e46;--slate-l:#e8ecef;
+  --wood:#a3704c;--wood-l:#f5efe6;
+  --blue:#1a5276;--blue-l:#d6eaf8;
+  --amber:#b7770d;--amber-l:#fef9e7;
+  --red:#922b21;--red-l:#fdedec;
+  --gray:#f4f6f7;--gray2:#e9ecef;--gray3:#ced4da;
+  --white:#ffffff;--black:#212529;
+}
+body{font-family:'Inter',sans-serif;background:#e2ddd5;min-height:100vh;padding:24px 16px 48px}
+.page{max-width:1100px;margin:0 auto}
+
+/* SETUP BANNER */
+.setup-banner{background:#fff3cd;border:1.5px solid #f0c040;border-radius:8px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:#6b4c00}
+.setup-banner h3{font-size:14px;font-weight:600;margin-bottom:8px;color:#4a3200}
+.setup-banner ol{padding-left:18px;line-height:2}
+.setup-banner code{background:#fde68a;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px}
+.setup-banner .url-input-wrap{display:flex;gap:8px;margin-top:10px}
+.setup-banner input{flex:1;padding:8px 12px;border:1.5px solid #d4a017;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;background:#fffdf0}
+.setup-banner button{padding:8px 16px;background:var(--forest);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}
+.setup-banner button:hover{background:var(--forest-m)}
+.setup-banner .tip{font-size:11px;color:#8a6a00;margin-top:6px}
+
+/* LOADING / ERROR */
+.loading-state{text-align:center;padding:60px 20px;color:var(--slate)}
+.loading-spinner{width:40px;height:40px;border:3px solid var(--gray3);border-top-color:var(--forest);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-state{background:var(--red-l);border:1px solid #e8b4b0;border-radius:8px;padding:20px;color:var(--red);text-align:center;margin:20px 0}
+
+/* STATUS BAR */
+.status-bar{display:flex;align-items:center;justify-content:space-between;background:var(--slate-l);border-radius:6px;padding:8px 14px;margin-bottom:12px;font-size:11px;color:var(--slate);flex-wrap:wrap;gap:8px}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot-green{background:var(--forest-m)} .dot-amber{background:var(--amber)} .dot-gray{background:var(--gray3)}
+.refresh-btn{padding:4px 10px;background:var(--forest);color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Inter',sans-serif}
+.refresh-btn:hover{background:var(--forest-m)}
+
+/* HEADER */
+.header{background:var(--forest);border-radius:10px 10px 0 0;padding:20px 28px 16px;margin-bottom:2px}
+.header-title{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:#fff;letter-spacing:-.3px}
+.header-sub{display:flex;justify-content:space-between;align-items:center;margin-top:6px;flex-wrap:wrap;gap:8px}
+.header-sub-left{font-size:12px;color:#a8d5be}
+.header-badge{background:rgba(255,255,255,.12);border:1px solid rgba(250,215,160,.4);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;color:#fad7a0;font-family:'JetBrains Mono',monospace}
+
+/* SECTION LABEL */
+.section-label{background:var(--slate);color:#fff;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:7px 16px;margin:10px 0 0}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:var(--gray3)}
+.kpi-card{padding:14px 16px 12px;display:flex;flex-direction:column;gap:4px}
+.kpi-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase}
+.kpi-val{font-family:'Fraunces',serif;font-size:26px;font-weight:600;line-height:1.1}
+.kpi-sub{font-size:11px;color:#888;margin-top:1px}
+.kpi-blue{background:var(--blue-l)} .kpi-blue .kpi-label{color:var(--blue)} .kpi-blue .kpi-val{color:var(--forest)}
+.kpi-green{background:var(--forest-l)} .kpi-green .kpi-label{color:var(--forest-m)} .kpi-green .kpi-val{color:var(--forest)}
+.kpi-amber{background:var(--amber-l)} .kpi-amber .kpi-label{color:var(--amber)} .kpi-amber .kpi-val{color:var(--amber)}
+.kpi-gray{background:var(--gray2)} .kpi-gray .kpi-label{color:var(--slate)} .kpi-gray .kpi-val{color:var(--slate)}
+
+/* DOS COLUMNAS */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--gray3);margin-top:2px}
+.col-block{background:var(--white)}
+
+/* TABLA */
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--slate);color:#fff;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;text-align:left}
+thead th.r{text-align:right}
+tbody tr:nth-child(even) td{background:var(--gray)}
+tbody td{padding:7px 10px;font-size:12px;border-bottom:1px solid #e0e0e0;vertical-align:middle}
+tbody td.r{text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px}
+tbody td.bold{font-weight:600}
+.total-row td{background:var(--forest)!important;color:#fff;font-weight:600;font-size:12px}
+
+/* PILL */
+.pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px}
+.pill-green{background:var(--forest-l);color:var(--forest-m)}
+.pill-amber{background:var(--amber-l);color:var(--amber)}
+.pill-blue{background:var(--blue-l);color:var(--blue)}
+.pill-red{background:var(--red-l);color:var(--red)}
+.pill-gray{background:var(--gray2);color:var(--slate)}
+
+/* FLUJO */
+.flujo-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 16px}
+.flujo-card{border-radius:8px;padding:14px 16px}
+.flujo-card-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+.flujo-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+.flujo-row:last-child{border-bottom:none;margin-top:4px;padding-top:8px}
+.flujo-label{font-size:12px}
+.flujo-amount{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+.green{color:var(--forest-m)} .red{color:var(--red)} .blue{color:var(--blue)} .amber{color:var(--amber)}
+
+/* COSTOS */
+.costo-row{display:flex;align-items:center;padding:9px 16px;border-bottom:1px solid #e8e8e8;gap:10px}
+.costo-row:nth-child(even){background:var(--gray)}
+.costo-desc{flex:1;font-size:12px}
+.costo-num{font-family:'JetBrains Mono',monospace;font-size:12px;width:80px;text-align:right;flex-shrink:0}
+.costo-bar-wrap{width:80px;flex-shrink:0}
+.progress-track{background:#ddd;border-radius:4px;height:6px;overflow:hidden}
+.progress-fill{height:6px;border-radius:4px}
+.costo-total-row{background:var(--forest)!important;padding:10px 16px;display:flex;align-items:center;gap:10px}
+.costo-total-row .costo-desc,.costo-total-row .costo-num{color:#fff;font-weight:600}
+
+/* PERMUTAS */
+.permuta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:var(--gray3)}
+.permuta-card{padding:14px 16px 12px;display:flex;flex-direction:column;gap:4px}
+.permuta-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase}
+.permuta-val{font-family:'Fraunces',serif;font-size:22px;font-weight:600;line-height:1.1}
+.permuta-sub{font-size:10px;color:#888;margin-top:1px}
+
+/* CHART */
+.chart-wrap{padding:16px 16px 8px;background:#fff}
+.chart-inner{position:relative;height:200px}
+.chart-legend{display:flex;gap:16px;padding:6px 16px 12px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#555}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* BANNER */
+.banner{padding:10px 16px;font-size:12px;font-weight:500;text-align:center}
+.banner-blue{background:var(--blue-l);color:var(--blue)}
+.banner-green{background:var(--forest-l);color:var(--forest)}
+.banner-amber{background:var(--amber-l);color:var(--amber)}
+
+/* FOOTER */
+.footer{background:var(--forest);border-radius:0 0 10px 10px;padding:10px 20px;text-align:center;font-size:11px;color:#7fb5a0;margin-top:2px}
+
+/* SKELETON */
+.skeleton{background:linear-gradient(90deg,#e8e8e8 25%,#f4f4f4 50%,#e8e8e8 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:4px;display:inline-block}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+@media(max-width:700px){
+  .kpi-grid,.permuta-grid{grid-template-columns:repeat(2,1fr)}
+  .two-col{grid-template-columns:1fr}
+  .flujo-grid{grid-template-columns:1fr}
+  .header-title{font-size:20px}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- SETUP BANNER -->
+<div class="setup-banner" id="setupBanner">
+  <h3>Configuración inicial — conectar con Google Sheets</h3>
+  <ol>
+    <li>Abrí tu Google Sheet del proyecto RDB II</li>
+    <li>Ir a <strong>Archivo → Compartir → Publicar en la web</strong></li>
+    <li>En "Enlace", elegí la hoja <strong>"Resumen"</strong> y formato <strong>CSV</strong></li>
+    <li>Hacé clic en <strong>Publicar</strong> y copiá la URL que aparece</li>
+    <li>Pegala acá abajo y hacé clic en Conectar</li>
+  </ol>
+  <div class="url-input-wrap">
+    <input type="text" id="sheetUrl" placeholder="URL ya configurada — ver botón Cambiar Sheet" />
+    <button onclick="connectSheet()">Conectar</button>
+  </div>
+  <div class="tip">La URL queda guardada en el navegador. Solo necesitás hacer esto una vez por dispositivo.</div>
+
+  <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e0c060">
+    <strong>Estructura esperada en tu Google Sheet (hoja "Resumen"):</strong><br>
+    <div style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11px;background:#fffdf0;padding:10px;border-radius:4px;line-height:1.8">
+      Fila 1: encabezados (se ignora)<br>
+      A2: Nombre del proyecto<br>
+      A3: Tipo de cambio USD/ARS (ej: 1515)<br>
+      A4: Venta bruta USD<br>
+      A5: Ganancia neta USD<br>
+      A6: Costos totales USD<br>
+      A7: Cobrado a dueños USD<br>
+      A8: Saldo por cobrar USD<br>
+      A9: Lotes disponibles completos<br>
+      A10: Lotes permutados<br>
+      A11: Lotes no comerciales<br>
+      A12: UF disponibles<br>
+      A13: Ingresos período actual<br>
+      A14: Egresos período actual<br>
+      A15: Ingresos proyección futura<br>
+      A16: Egresos proyección futura<br>
+      A17: Total presupuesto costos<br>
+      A18: Saldo pendiente costos<br>
+      A19: Derecho total m² permutas<br>
+      A20: m² en poder actual<br>
+      A21: Saldo m² por aplicar<br>
+      A22: Diferencia conciliación m²<br>
+      <br>
+      B2–B22: valores correspondientes (números, sin símbolos $ ni puntos)
+    </div>
+    <div class="tip" style="margin-top:8px">Mientras configurás el sheet, el dashboard muestra los datos del modelo base (RDB II julio 2026).</div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar" id="statusBar" style="display:none">
+  <div>
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText"></span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span id="lastUpdate" style="color:#888"></span>
+    <button class="refresh-btn" onclick="loadData()">Actualizar</button>
+    <button class="refresh-btn" style="background:var(--amber)" onclick="resetSheet()">Cambiar Sheet</button>
+  </div>
+</div>
+
+<!-- DASHBOARD (se renderiza con datos) -->
+<div id="dashboard"></div>
+
+</div><!-- /page -->
+
+<script>
+// ── DATOS POR DEFECTO (modelo base RDB II julio 2026) ────────
+const DEFAULT = {
+  proyecto: "Rincón del Bosque II — Familia Maler",
+  empresa:  "ACS Ingeniería Constructora S.A.S.",
+  tc:       1515,
+  ventaBruta:   1619104,
+  gananciaNeta: 1171190,
+  costosTotales: 447914,
+  cobrado:       92570,
+  saldo:          7755,
+  lotesDisp:     30,
+  lotesPerm:     10,
+  lotesNC:        6,
+  ufDisp:        50,
+  ingActual:     91600,
+  egActual:      77574,
+  ingFuturo:    102600,
+  egFuturo:     112388,
+  totalPresup:  383150,
+  saldoPresup:  147650,
+  permDerecho:  10800,
+  permEnPoder:   8875,
+  permSaldo:     8941,
+  permDif:        -65.99,
+  clientes: [
+    {nombre:"Moreira (Analía y Casi)", lote:"P12", contrato:"BOL-012", total:28000, cobrado:27160, saldo:0},
+    {nombre:"Daddona (Luciano y Natalia)", lote:"P13", contrato:"BOL-013", total:28000, cobrado:27160, saldo:0},
+    {nombre:"Virginia", lote:"P14-UFA", contrato:"BOL-014A", total:14000, cobrado:14000, saldo:0},
+    {nombre:"Mariel", lote:"P14-UFB", contrato:"BOL-014B", total:16500, cobrado:8250, saldo:7755},
+    {nombre:"Michael", lote:"P15-UFB", contrato:"BOL-015B", total:16500, cobrado:16000, saldo:0},
+    {nombre:"Santoro Demian", lote:"P15-UFA", contrato:"—", total:16000, cobrado:0, saldo:16000},
+  ],
+  costos: [
+    {rubro:"Materiales energía eléctrica", total:80000, abonado:17000, saldo:33000, pct:59},
+    {rubro:"Mano de obra redes de servicios", total:144500, abonado:25500, saldo:49000, pct:66},
+    {rubro:"Limpieza + caminos", total:75000, abonado:10000, saldo:35000, pct:53},
+    {rubro:"Reserva general (imprevistos)", total:50000, abonado:25000, saldo:25000, pct:50},
+    {rubro:"Ajuste s/ presupuesto original", total:5650, abonado:0, saldo:5650, pct:0},
+  ]
+};
+
+let chartInstance = null;
+
+// ── UTILIDADES ────────────────────────────────────────────────
+function fmt(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs >= 1000000) return (n < 0 ? '-' : '') + '$' + (abs/1000000).toFixed(2).replace('.',',') + 'M';
+  return (n < 0 ? '-' : '') + '$' + Math.round(abs).toLocaleString('es-AR');
+}
+function fmtM2(n) { return n < 0 ? n.toFixed(2).replace('.',',') + ' m²' : n.toLocaleString('es-AR') + ' m²'; }
+function pill(text, type) { return `<span class="pill pill-${type}">${text}</span>`; }
+function parseNum(s) { if (!s) return 0; return parseFloat(String(s).replace(/[^\d.,-]/g,'').replace(/\./g,'').replace(',','.')) || 0; }
+
+// ── RENDER ────────────────────────────────────────────────────
+function render(d) {
+  const saldoActual  = d.ingActual  - d.egActual;
+  const saldoFuturo  = d.ingFuturo  - d.egFuturo;
+  const totalClientes = d.clientes.reduce((a,c) => a + c.total, 0);
+  const totalCobrado  = d.clientes.reduce((a,c) => a + c.cobrado, 0);
+  const totalSaldo    = d.clientes.reduce((a,c) => a + c.saldo, 0);
+
+  const clienteRows = d.clientes.map(c => `
+    <tr>
+      <td class="bold">${c.nombre}</td>
+      <td>${c.lote}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${c.contrato}</td>
+      <td class="r">${fmt(c.total)}</td>
+      <td class="r ${c.cobrado > 0 ? 'green' : ''}">${fmt(c.cobrado)}</td>
+      <td class="r">${c.saldo > 0 ? `<span class="red bold">${fmt(c.saldo)}</span>` : pill('Cobrado','green')}</td>
+    </tr>`).join('');
+
+  const costoRows = d.costos.map(c => `
+    <div class="costo-row">
+      <div class="costo-desc">${c.rubro}</div>
+      <div class="costo-num blue">${fmt(c.total)}</div>
+      <div class="costo-num ${c.saldo > 0 ? 'red' : 'green'}">${fmt(c.saldo)}</div>
+      <div class="costo-bar-wrap">
+        <div class="progress-track">
+          <div class="progress-fill" style="width:${c.pct}%;background:${c.pct >= 50 ? '#2d6a4f' : '#b7770d'}"></div>
+        </div>
+        <div style="font-size:10px;color:#666;text-align:center;margin-top:2px">${c.pct}%</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('dashboard').innerHTML = `
+    <div class="header">
+      <div class="header-title">${d.proyecto}</div>
+      <div class="header-sub">
+        <div class="header-sub-left">${d.empresa} &nbsp;·&nbsp; 3 Sectores &nbsp;·&nbsp; Mensura N° 223-24 &nbsp;·&nbsp; Estado: En Curso</div>
+        <div class="header-badge">USD 1 = $${Math.round(d.tc).toLocaleString('es-AR')} ARS</div>
+      </div>
+    </div>
+
+    <div class="section-label">Indicadores financieros</div>
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-label">Venta bruta total</div>
+        <div class="kpi-val">${fmt(d.ventaBruta)}</div>
+        <div class="kpi-sub">USD — todo el proyecto</div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-label">Ganancia neta estimada</div>
+        <div class="kpi-val">${fmt(d.gananciaNeta)}</div>
+        <div class="kpi-sub">USD — resultado proyectado</div>
+      </div>
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-label">Costos totales obra</div>
+        <div class="kpi-val">${fmt(d.costosTotales)}</div>
+        <div class="kpi-sub">USD + comisiones y honorarios</div>
+      </div>
+      <div class="kpi-card kpi-gray">
+        <div class="kpi-label">Cobrado a dueños</div>
+        <div class="kpi-val">${fmt(d.cobrado)}</div>
+        <div class="kpi-sub">USD · saldo por cobrar ${fmt(d.saldo)}</div>
+      </div>
+    </div>
+
+    <div class="section-label">Inventario de lotes</div>
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-label">Disponibles completas</div>
+        <div class="kpi-val">${d.lotesDisp}</div>
+        <div class="kpi-sub">parcelas madres enteras</div>
+      </div>
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-label">Permutadas</div>
+        <div class="kpi-val">${d.lotesPerm}</div>
+        <div class="kpi-sub">parcelas madres</div>
+      </div>
+      <div class="kpi-card kpi-gray">
+        <div class="kpi-label">No comerciales</div>
+        <div class="kpi-val">${d.lotesNC}</div>
+        <div class="kpi-sub">dominio público / reserva</div>
+      </div>
+      <div class="kpi-card" style="background:var(--forest-l)">
+        <div class="kpi-label" style="color:var(--forest-m)">UF disponibles</div>
+        <div class="kpi-val" style="color:var(--forest)">${d.ufDisp}</div>
+        <div class="kpi-sub">de 117 en listado · ~450 m² c/u</div>
+      </div>
+    </div>
+
+    <div class="section-label">Clientes y contratos · Flujo de caja</div>
+    <div class="two-col">
+      <div class="col-block">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th><th>Lote</th><th>Contrato</th>
+              <th class="r">Total</th><th class="r">Cobrado</th><th class="r">Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${clienteRows}
+            <tr class="total-row">
+              <td colspan="3" class="bold">Total · ${d.clientes.length} contratos</td>
+              <td class="r">${fmt(totalClientes)}</td>
+              <td class="r">${fmt(totalCobrado)}</td>
+              <td class="r" style="color:#fad7a0">${totalSaldo > 0 ? fmt(totalSaldo) : '—'}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="banner banner-blue">
+          Financiado anticipo 50% + 12 cuotas CAC 3%/mes → total a recaudar: <strong>$1.065.260 USD</strong> &nbsp;[+10,9% sobre contado]
+        </div>
+      </div>
+
+      <div class="col-block">
+        <div class="flujo-grid">
+          <div class="flujo-card" style="background:var(--forest-l)">
+            <div class="flujo-card-title" style="color:var(--forest)">Período actual</div>
+            <div class="flujo-row"><span class="flujo-label">Ingresos</span><span class="flujo-amount green">${fmt(d.ingActual)}</span></div>
+            <div class="flujo-row"><span class="flujo-label">Egresos</span><span class="flujo-amount red">${fmt(d.egActual)}</span></div>
+            <div class="flujo-row"><span class="flujo-label" style="font-weight:600">Saldo</span>
+              <span class="flujo-amount ${saldoActual >= 0 ? 'green' : 'red'}" style="font-size:15px">${fmt(saldoActual)}</span></div>
+          </div>
+          <div class="flujo-card" style="background:var(--amber-l)">
+            <div class="flujo-card-title" style="color:var(--amber)">Proyección futura</div>
+            <div class="flujo-row"><span class="flujo-label">Ingresos</span><span class="flujo-amount green">${fmt(d.ingFuturo)}</span></div>
+            <div class="flujo-row"><span class="flujo-label">Egresos</span><span class="flujo-amount red">${fmt(d.egFuturo)}</span></div>
+            <div class="flujo-row"><span class="flujo-label" style="font-weight:600">Saldo</span>
+              <span class="flujo-amount ${saldoFuturo >= 0 ? 'green' : 'red'}" style="font-size:15px">${fmt(saldoFuturo)}</span></div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-inner"><canvas id="flujoChart" role="img" aria-label="Flujo de caja comparativo"></canvas></div>
+          <div class="chart-legend">
+            <div class="leg-item"><div class="leg-dot" style="background:#2d6a4f"></div>Ingresos</div>
+            <div class="leg-item"><div class="leg-dot" style="background:#922b21"></div>Egresos</div>
+            <div class="leg-item"><div class="leg-dot" style="background:#1a5276"></div>Saldo</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">Costos del proyecto · Inventario por sector</div>
+    <div class="two-col">
+      <div class="col-block">
+        <div class="costo-row" style="background:var(--slate-l)">
+          <div class="costo-desc" style="font-size:10px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.06em">Rubro</div>
+          <div class="costo-num" style="font-size:10px;font-weight:600;color:var(--slate);text-transform:uppercase">Total</div>
+          <div class="costo-num" style="font-size:10px;font-weight:600;color:var(--slate);text-transform:uppercase">Saldo</div>
+          <div class="costo-bar-wrap" style="font-size:10px;font-weight:600;color:var(--slate);text-transform:uppercase;text-align:center">% pago</div>
+        </div>
+        ${costoRows}
+        <div class="costo-total-row">
+          <div class="costo-desc">TOTAL PRESUPUESTO</div>
+          <div class="costo-num">${fmt(d.totalPresup)}</div>
+          <div class="costo-num" style="color:#fad7a0">${fmt(d.saldoPresup)}</div>
+          <div class="costo-bar-wrap" style="font-size:10px;color:#b2d8c4;text-align:center">$242k en lotes</div>
+        </div>
+      </div>
+
+      <div class="col-block">
+        <table>
+          <thead>
+            <tr><th>Sector</th><th class="r">Disponibles</th><th class="r">Precio ref. UF</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="bold">Sector I — Chacra 08 (P8–P22)</td><td class="r">${pill('10+ UF','blue')}</td><td class="r" style="font-family:'JetBrains Mono',monospace;font-size:11px">$14k–$38k</td></tr>
+            <tr><td class="bold">Sector Sur — Mzas 14,15,16+Qta2</td><td class="r">${pill('16 UF','blue')}</td><td class="r" style="font-family:'JetBrains Mono',monospace;font-size:11px">$15k–$71k</td></tr>
+            <tr><td class="bold">Mangrullo Este — Mza 13</td><td class="r">${pill('33 UF','blue')}</td><td class="r" style="font-family:'JetBrains Mono',monospace;font-size:11px">$17.8k–$20.5k</td></tr>
+            <tr><td class="bold">Casa + terreno (Mza16-P2)</td><td class="r">${pill('2 lotes','blue')}</td><td class="r" style="font-family:'JetBrains Mono',monospace;font-size:11px">$52.5k / $71.4k</td></tr>
+            <tr class="total-row"><td colspan="2">Sup. comercializable: 50.208 m²</td><td class="r">$1.619.104 USD</td></tr>
+          </tbody>
+        </table>
+        <div class="banner banner-green" style="margin-top:2px">Fin estimado: 2027-01 &nbsp;·&nbsp; ARS equiv.: $2.452.942.459</div>
+
+        <table style="margin-top:2px">
+          <thead><tr><th>Parcela vendida</th><th>Comprador</th><th class="r">USD</th><th class="r">Escritura</th></tr></thead>
+          <tbody>
+            <tr><td>P12 · 900 m²</td><td>Moreira</td><td class="r">$28.000</td><td class="r">${pill('Pendiente','amber')}</td></tr>
+            <tr><td>P13 · 900 m²</td><td>Daddona</td><td class="r">$28.000</td><td class="r">${pill('Pendiente','amber')}</td></tr>
+            <tr><td>P14-UFA · 465 m²</td><td>Virginia</td><td class="r">$14.000</td><td class="r">${pill('Pendiente','amber')}</td></tr>
+            <tr><td>P14-UFB · 465 m²</td><td>Mariel</td><td class="r">$16.500</td><td class="r">${pill('Pendiente','amber')}</td></tr>
+            <tr><td>P15-UFB · 493 m²</td><td>Michael</td><td class="r">$16.500</td><td class="r">${pill('Pendiente','amber')}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-label">Cómputo de m² permutados — Vaccaro Gestión + ACS</div>
+    <div class="permuta-grid">
+      <div class="permuta-card" style="background:var(--blue-l)">
+        <div class="permuta-label" style="color:var(--blue)">Derecho total acordado</div>
+        <div class="permuta-val" style="color:var(--forest)">${fmtM2(d.permDerecho)}</div>
+        <div class="permuta-sub">Vaccaro 9.000 + ACS 1.800</div>
+      </div>
+      <div class="permuta-card" style="background:var(--amber-l)">
+        <div class="permuta-label" style="color:var(--amber)">En poder actual</div>
+        <div class="permuta-val" style="color:var(--amber)">${fmtM2(d.permEnPoder)}</div>
+        <div class="permuta-sub">6 parcelas Vaccaro/ACS</div>
+      </div>
+      <div class="permuta-card" style="background:var(--forest-l)">
+        <div class="permuta-label" style="color:var(--forest-m)">Saldo por aplicar</div>
+        <div class="permuta-val" style="color:var(--forest)">${fmtM2(d.permSaldo)}</div>
+        <div class="permuta-sub">Derecho pendiente</div>
+      </div>
+      <div class="permuta-card" style="background:var(--gray2)">
+        <div class="permuta-label" style="color:var(--slate)">Diferencia conciliación</div>
+        <div class="permuta-val" style="color:var(--red)">${fmtM2(d.permDif)}</div>
+        <div class="permuta-sub">En poder − saldo del derecho</div>
+      </div>
+    </div>
+    <div class="banner banner-green" style="margin-top:2px">
+      Parcelas en poder: P19 · Mza15-P1(FO) · Mza15-P8 · Mza16-P1 · Qta2-P8 · Mza13-P9 · Mza13-P8 &nbsp;|&nbsp; Total: 8.875,50 m²
+    </div>
+
+    <div class="footer">
+      RINCÓN DEL BOSQUE II &nbsp;·&nbsp; ACS Ingeniería Constructora S.A.S. &nbsp;·&nbsp; Vaccaro Nicolás Augusto &nbsp;·&nbsp; Confidencial — Solo uso interno
+    </div>
+  `;
+
+  // Gráfico
+  const ctx = document.getElementById('flujoChart');
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Período actual', 'Proyección futura'],
+      datasets: [
+        { label:'Ingresos', data:[d.ingActual, d.ingFuturo], backgroundColor:'#2d6a4f', borderRadius:4, barPercentage:.6 },
+        { label:'Egresos',  data:[d.egActual,  d.egFuturo],  backgroundColor:'#922b21', borderRadius:4, barPercentage:.6 },
+        { label:'Saldo',    data:[saldoActual,  saldoFuturo], backgroundColor:'#1a5276', borderRadius:4, barPercentage:.6 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => ctx.dataset.label+': '+fmt(ctx.parsed.y)+' USD' } }
+      },
+      scales:{
+        x:{ grid:{color:'#e8e8e8'}, ticks:{font:{size:11,family:'Inter'},color:'#555'} },
+        y:{ grid:{color:'#e8e8e8'}, ticks:{font:{size:11,family:'Inter'},color:'#555',
+          callback: v => (v<0?'-':'')+'$'+Math.abs(v/1000).toFixed(0)+'k' } }
+      }
+    }
+  });
+}
+
+// ── PARSEO CSV DE GOOGLE SHEETS ───────────────────────────────
+function parseCSV(text) {
+  const rows = text.trim().split('\n').map(r => r.split(','));
+  const get = (rowIdx) => {
+    const row = rows[rowIdx];
+    if (!row || !row[1]) return 0;
+    return parseNum(row[1]);
+  };
+  const getText = (rowIdx) => {
+    const row = rows[rowIdx];
+    return row && row[1] ? row[1].replace(/^"|"$/g,'').trim() : '';
+  };
+
+  return {
+    proyecto:      getText(1)  || DEFAULT.proyecto,
+    empresa:       DEFAULT.empresa,
+    tc:            get(2)      || DEFAULT.tc,
+    ventaBruta:    get(3)      || DEFAULT.ventaBruta,
+    gananciaNeta:  get(4)      || DEFAULT.gananciaNeta,
+    costosTotales: get(5)      || DEFAULT.costosTotales,
+    cobrado:       get(6)      || DEFAULT.cobrado,
+    saldo:         get(7)      || DEFAULT.saldo,
+    lotesDisp:     get(8)      || DEFAULT.lotesDisp,
+    lotesPerm:     get(9)      || DEFAULT.lotesPerm,
+    lotesNC:       get(10)     || DEFAULT.lotesNC,
+    ufDisp:        get(11)     || DEFAULT.ufDisp,
+    ingActual:     get(12)     || DEFAULT.ingActual,
+    egActual:      get(13)     || DEFAULT.egActual,
+    ingFuturo:     get(14)     || DEFAULT.ingFuturo,
+    egFuturo:      get(15)     || DEFAULT.egFuturo,
+    totalPresup:   get(16)     || DEFAULT.totalPresup,
+    saldoPresup:   get(17)     || DEFAULT.saldoPresup,
+    permDerecho:   get(18)     || DEFAULT.permDerecho,
+    permEnPoder:   get(19)     || DEFAULT.permEnPoder,
+    permSaldo:     get(20)     || DEFAULT.permSaldo,
+    permDif:       get(21)     || DEFAULT.permDif,
+    clientes:      DEFAULT.clientes,
+    costos:        DEFAULT.costos,
+  };
+}
+
+// ── CONEXIÓN CON GOOGLE SHEETS ────────────────────────────────
+async function loadData() {
+  const url = localStorage.getItem('rdb2_sheet_url');
+  if (!url) { render(DEFAULT); return; }
+
+  setStatus('loading', 'Actualizando desde Google Sheets...');
+  try {
+    // Convertir URL de publicación a URL de CSV si es necesario
+    let csvUrl = url;
+    if (url.includes('docs.google.com') && !url.includes('output=csv')) {
+      csvUrl = url.replace(/\/edit.*$/, '/pub?output=csv');
+    }
+    const resp = await fetch(csvUrl + '&t=' + Date.now()); // cache-bust
+    if (!resp.ok) throw new Error('No se pudo acceder al sheet (HTTP ' + resp.status + ')');
+    const text = await resp.text();
+    const data = parseCSV(text);
+    render(data);
+    setStatus('ok', 'Conectado a Google Sheets');
+    localStorage.setItem('rdb2_last_update', new Date().toLocaleString('es-AR'));
+  } catch (e) {
+    console.warn('Sheet error:', e);
+    render(DEFAULT);
+    setStatus('warn', 'No se pudo leer el sheet — mostrando datos guardados. Error: ' + e.message);
+  }
+  document.getElementById('lastUpdate').textContent =
+    'Últ. actualiz.: ' + (localStorage.getItem('rdb2_last_update') || 'ahora');
+}
+
+function setStatus(type, msg) {
+  const bar = document.getElementById('statusBar');
+  const dot = document.getElementById('statusDot');
+  bar.style.display = 'flex';
+  document.getElementById('statusText').textContent = msg;
+  dot.className = 'status-dot ' + (type==='ok'?'dot-green':type==='warn'?'dot-amber':'dot-gray');
+}
+
+function connectSheet() {
+  const url = document.getElementById('sheetUrl').value.trim();
+  if (!url || !url.includes('docs.google.com')) {
+    alert('Pegá una URL válida de Google Sheets');
+    return;
+  }
+  localStorage.setItem('rdb2_sheet_url', url);
+  document.getElementById('setupBanner').style.display = 'none';
+  loadData();
+}
+
+function resetSheet() {
+  if (!confirm('¿Desvincular el Google Sheet y volver a los datos por defecto?')) return;
+  localStorage.removeItem('rdb2_sheet_url');
+  localStorage.removeItem('rdb2_last_update');
+  document.getElementById('setupBanner').style.display = 'block';
+  document.getElementById('statusBar').style.display = 'none';
+  render(DEFAULT);
+}
+
+// ── AUTO-REFRESH cada 5 min ───────────────────────────────────
+setInterval(loadData, 5 * 60 * 1000);
+
+// ── INICIO ────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  // URL del sheet precargada
+  const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQe7RxqjJCanJJR5w6RT8LeJc81aAM2brIOy_SOyPE415Hguz1Z_aFxxWmUh1U7Br8Y7dZpeh6aGAFR/pub?gid=1353478121&single=true&output=csv';
+  if (!localStorage.getItem('rdb2_sheet_url')) {
+    localStorage.setItem('rdb2_sheet_url', SHEET_URL);
+  }
+  document.getElementById('setupBanner').style.display = 'none';
+  loadData();
+});
+</script>
+</body>
+</html>
